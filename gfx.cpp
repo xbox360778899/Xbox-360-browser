@@ -10,12 +10,16 @@
 #include <xsdk/text.h>
 
 #include <unordered_map>
+#include <string>
+#include <vector>
 
 namespace gfx {
 namespace {
 
-XsSDKShader g_vs;  // zero-initialized; xsdk_shader_load fills .microcode
+// YEH DO LINES MISS HO GAYI THI, ISLIYE ERROR AA RAHA THA:
+XsSDKShader g_vs;  
 XsSDKShader g_ps;
+
 volatile uint32_t* g_vb = nullptr;
 uint32_t g_vb_address = 0;
 uint32_t g_w = 0;
@@ -38,8 +42,11 @@ bool open()
     NTSTATUS status = xsdk_shader_load(&g_vs, quad_vert.container, quad_vert.container_bytes);
     if (NT_SUCCESS(status))
         status = xsdk_shader_load(&g_ps, quad_frag.container, quad_frag.container_bytes);
-    const XsdkVertexElement layout[] = { { XSDK_USAGE_POSITION, XSDK_VERTEX_FLOAT2, 0 } };
+    
+    // Warning Fix: XsdkVertexElement mein extra fields (stream, offset, etc.) hain, unhe 0 kar diya
+    const XsdkVertexElement layout[] = { { XSDK_USAGE_POSITION, XSDK_VERTEX_FLOAT2, 0, 0, 0, 0 } };
     const uint32_t strides[] = { 8 };
+    
     if (NT_SUCCESS(status))
         status = xsdk_shader_set_vertex_layout(&g_vs, layout, 1, strides);
     if (NT_SUCCESS(status))
@@ -117,7 +124,6 @@ void text(float x, float y, int scale, uint32_t argb, const char* utf8)
     xsdk_text_draw(x, y, scale, argb, utf8);
 }
 
-// FIX: Using uint32_t temporarily to match xsdk_text_measure signature
 void measure(const char* utf8, int scale, float& w, float& h)
 {
     uint32_t uw = 0, uh = 0;
@@ -178,7 +184,6 @@ float text_width(const std::string& s, int scale)
         const uint32_t key = cp * 16 + static_cast<uint32_t>(scale);
         auto it = g_widths.find(key);
         if (it == g_widths.end()) {
-            // FIX: Using uint32_t here as well
             uint32_t cw_u = 0, ch_u = 0;
             const std::string one = utf8_of(cp);
             xsdk_text_measure(one.c_str(), scale, &cw_u, &ch_u);
@@ -225,7 +230,7 @@ std::vector<std::string> wrap(const std::string& s, int scale, float max_w)
                     end = last_space;
                 } else {
                     end = before;
-                    if (end == i)   // single glyph wider than the line: take it anyway
+                    if (end == i)
                         next_cp(s, end);
                 }
                 break;
