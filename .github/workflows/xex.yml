@@ -31,7 +31,15 @@ jobs:
       - name: Build the powerpc-xsdk-elf toolchain
         if: steps.toolchain.outputs.cache-hit != 'true'
         run: bash xsdk/tools/toolchain/build.sh
+      - name: Build XSDK libraries
+        run: |
+          cmake -S xsdk -B xsdk/build \
+            -DCMAKE_TOOLCHAIN_FILE="$PWD/xsdk/cmake/xsdk.cmake" \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build xsdk/build --parallel
 
+      - name: Configure
+        run: cmake -B build -DCMAKE_TOOLCHAIN_FILE="$PWD/xsdk/cmake/xsdk.cmake" -DCMAKE_BUILD_TYPE=Release
       - name: Configure
         run: cmake -B build -DCMAKE_TOOLCHAIN_FILE="$PWD/xsdk/cmake/xsdk.cmake" -DCMAKE_BUILD_TYPE=Release
 
