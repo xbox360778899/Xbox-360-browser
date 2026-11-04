@@ -44,7 +44,7 @@ bool open()
         status = xsdk_shader_load(&g_ps, quad_frag.container, quad_frag.container_bytes);
     
     // Warning Fix: XsdkVertexElement mein extra fields (stream, offset, etc.) hain, unhe 0 kar diya
-    const XsdkVertexElement layout[] = { { XSDK_USAGE_POSITION, XSDK_VERTEX_FLOAT2, 0, 0, 0, 0 } 0 };
+    const XsdkVertexElement layout[] = { { XSDK_USAGE_POSITION, XSDK_VERTEX_FLOAT2, 0, 0, 0, 0, 0 } };
     const uint32_t strides[] = { 8 };
     
     if (NT_SUCCESS(status))
