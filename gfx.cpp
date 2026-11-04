@@ -117,9 +117,13 @@ void text(float x, float y, int scale, uint32_t argb, const char* utf8)
     xsdk_text_draw(x, y, scale, argb, utf8);
 }
 
+// FIX: Using uint32_t temporarily to match xsdk_text_measure signature
 void measure(const char* utf8, int scale, float& w, float& h)
 {
-    xsdk_text_measure(utf8, scale, &w, &h);
+    uint32_t uw = 0, uh = 0;
+    xsdk_text_measure(utf8, scale, &uw, &uh);
+    w = static_cast<float>(uw);
+    h = static_cast<float>(uh);
 }
 
 uint32_t next_cp(const std::string& s, size_t& i)
@@ -174,9 +178,11 @@ float text_width(const std::string& s, int scale)
         const uint32_t key = cp * 16 + static_cast<uint32_t>(scale);
         auto it = g_widths.find(key);
         if (it == g_widths.end()) {
-            float cw = 0, ch = 0;
+            // FIX: Using uint32_t here as well
+            uint32_t cw_u = 0, ch_u = 0;
             const std::string one = utf8_of(cp);
-            xsdk_text_measure(one.c_str(), scale, &cw, &ch);
+            xsdk_text_measure(one.c_str(), scale, &cw_u, &ch_u);
+            float cw = static_cast<float>(cw_u);
             it = g_widths.emplace(key, cw).first;
         }
         w += it->second;
