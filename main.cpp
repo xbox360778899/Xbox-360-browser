@@ -178,7 +178,7 @@ int run()
                         keyboard.reset_focus();
                     }
                     if (pad.hit(INPUT_GAMEPAD_A))
-                        nav_to = bar.suggestion_url(bar.suggestion_focus());
+                        nav_to = bar.suggestion_url(bar.suggestions_focus());
                 } else if (keyboard.update(pad, bar)) {
                     bar.suggestions_focus(true);
                 }
