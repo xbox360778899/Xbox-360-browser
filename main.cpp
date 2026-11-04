@@ -18,6 +18,7 @@ extern "C" const XsdkNetworkLimits xsdk_network_limits = { 16, 8, 32, 32 };
 #include <xsdk/xam.h>
 
 #include <string>
+#include <memory> // Heap allocation ke liye zaroori hai
 
 namespace {
 
@@ -77,13 +78,15 @@ void draw_about()
 
 int run()
 {
-    Store store;
-    store.load();
-    Browser browser;
-    AddressBar bar(store);
-    Keyboard keyboard;
-    Hub hub;
-    Pad pad;
+    // FIX: Moved all large objects to Heap (std::make_unique) to prevent Stack Overflow
+    auto store = std::make_unique<Store>();
+    store->load();
+    
+    auto browser = std::make_unique<Browser>();
+    auto bar = std::make_unique<AddressBar>(*store);
+    auto keyboard = std::make_unique<Keyboard>();
+    auto hub = std::make_unique<Hub>();
+    auto pad = std::make_unique<Pad>();
 
     State state = State::Hub;
     std::string flash;
@@ -92,50 +95,50 @@ int run()
     bool quit = false;
 
     for (;;) {
-        pad.update();
-        if (pad.hit(INPUT_GAMEPAD_BACK))
+        pad->update();
+        if (pad->hit(INPUT_GAMEPAD_BACK))
             break;
 
         const bool sysui = xsdk_system_ui_open() != 0;  // poll once a frame
         std::string nav_to;
 
         if (about) {
-            if (pad.hit(INPUT_GAMEPAD_A) || pad.hit(INPUT_GAMEPAD_B)
-                || pad.hit(INPUT_GAMEPAD_X) || pad.hit(INPUT_GAMEPAD_Y))
+            if (pad->hit(INPUT_GAMEPAD_A) || pad->hit(INPUT_GAMEPAD_B)
+                || pad->hit(INPUT_GAMEPAD_X) || pad->hit(INPUT_GAMEPAD_Y))
                 about = false;
         } else if (!sysui) {
             switch (state) {
             case State::Hub: {
-                const HubAction a = hub.update(pad, store, browser.has_page());
+                const HubAction a = hub->update(*pad, *store, browser->has_page());
                 if (a.hide_hub)
                     state = State::Page;
                 if (!a.navigate.empty())
                     nav_to = a.navigate;
-                if (pad.hit(INPUT_GAMEPAD_Y)) {
+                if (pad->hit(INPUT_GAMEPAD_Y)) {
                     state = State::Edit;
-                    bar.begin_edit(browser.url());
-                    keyboard.show();
+                    bar->begin_edit(browser->url());
+                    keyboard->show();
                 }
                 break;
             }
             case State::Page: {
-                const std::string link = browser.update(pad);
+                const std::string link = browser->update(*pad);
                 if (!link.empty())
                     nav_to = link;
-                const AddressBar::Result r = bar.update(pad, !link.empty());
+                const AddressBar::Result r = bar->update(*pad, !link.empty());
                 switch (r) {
-                case AddressBar::Result::Back: browser.back(); break;
-                case AddressBar::Result::Forward: browser.forward(); break;
-                case AddressBar::Result::Reload: browser.reload(); break;
+                case AddressBar::Result::Back: browser->back(); break;
+                case AddressBar::Result::Forward: browser->forward(); break;
+                case AddressBar::Result::Reload: browser->reload(); break;
                 case AddressBar::Result::ToggleFav:
-                    if (browser.has_page()) {
-                        if (store.is_favorite(browser.url())) {
-                            for (size_t i = 0; i < store.favorites().size(); i++)
-                                if (store.favorites()[i].url == browser.url())
-                                    store.remove_favorite(i);
+                    if (browser->has_page()) {
+                        if (store->is_favorite(browser->url())) {
+                            for (size_t i = 0; i < store->favorites().size(); i++)
+                                if (store->favorites()[i].url == browser->url())
+                                    store->remove_favorite(i);
                             flash = "Removed from favorites";
                         } else {
-                            store.add_favorite(browser.title(), browser.url());
+                            store->add_favorite(browser->title(), browser->url());
                             flash = "Added to favorites";
                         }
                         flash_frames = 120;
@@ -145,46 +148,46 @@ int run()
                 case AddressBar::Result::Exit: quit = true; break;
                 case AddressBar::Result::Edit:
                     state = State::Edit;
-                    bar.begin_edit(browser.url());
-                    keyboard.show();
+                    bar->begin_edit(browser->url());
+                    keyboard->show();
                     break;
                 default: break;
                 }
-                if (pad.hit(INPUT_GAMEPAD_Y)) {
+                if (pad->hit(INPUT_GAMEPAD_Y)) {
                     state = State::Edit;
-                    bar.begin_edit(browser.url());
-                    keyboard.show();
+                    bar->begin_edit(browser->url());
+                    keyboard->show();
                 }
-                if (pad.hit(INPUT_GAMEPAD_B)) {
-                    if (browser.can_back())
-                        browser.back();
+                if (pad->hit(INPUT_GAMEPAD_B)) {
+                    if (browser->can_back())
+                        browser->back();
                     else
                         state = State::Hub;
                 }
                 break;
             }
             case State::Edit: {
-                if (pad.hit(INPUT_GAMEPAD_B)) {
-                    bar.end_edit();
-                    keyboard.hide();
-                    state = browser.has_page() ? State::Page : State::Hub;
+                if (pad->hit(INPUT_GAMEPAD_B)) {
+                    bar->end_edit();
+                    keyboard->hide();
+                    state = browser->has_page() ? State::Page : State::Hub;
                     break;
                 }
-                if (bar.suggestions_focused()) {
-                    if (pad.nav_x())
-                        bar.move_suggestion(pad.nav_x());
-                    if (pad.nav_y() > 0) {
-                        bar.suggestions_focus(false);
-                        keyboard.reset_focus();
+                if (bar->suggestions_focused()) {
+                    if (pad->nav_x())
+                        bar->move_suggestion(pad->nav_x());
+                    if (pad->nav_y() > 0) {
+                        bar->suggestions_focus(false);
+                        keyboard->reset_focus();
                     }
-                    if (pad.hit(INPUT_GAMEPAD_A))
-                        nav_to = bar.suggestion_url(0);
-                } else if (keyboard.update(pad, bar)) {
-                    bar.suggestions_focus(true);
+                    if (pad->hit(INPUT_GAMEPAD_A))
+                        nav_to = bar->suggestion_url(0);
+                } else if (keyboard->update(*pad, *bar)) {
+                    bar->suggestions_focus(true);
                 }
-                if (bar.enter_pending()) {
-                    bar.clear_enter();
-                    nav_to = bar.text();
+                if (bar->enter_pending()) {
+                    bar->clear_enter();
+                    nav_to = bar->text();
                 }
                 break;
             }
@@ -192,11 +195,11 @@ int run()
             if (!nav_to.empty()) {
                 const std::string target = normalize_url(nav_to);
                 if (!target.empty()) {
-                    browser.navigate(target);
-                    store.save();
+                    browser->navigate(target);
+                    store->save();
                     state = State::Page;
-                    bar.end_edit();
-                    keyboard.hide();
+                    bar->end_edit();
+                    keyboard->hide();
                 }
             }
         }
@@ -208,22 +211,22 @@ int run()
         gfx::fill_rect(0, 0, gfx::width(), gfx::height(), theme::kBg);
         switch (state) {
         case State::Page:
-            browser.draw(680);
-            bar.draw_display(browser.url(), browser.can_back(), browser.can_forward(),
-                browser.has_page() && store.is_favorite(browser.url()));
+            browser->draw(680);
+            bar->draw_display(browser->url(), browser->can_back(), browser->can_forward(),
+                browser->has_page() && store->is_favorite(browser->url()));
             break;
         case State::Hub:
-            if (browser.has_page() && !browser.loading())
-                browser.draw(680);
-            hub.draw(store);
-            bar.draw_display(browser.url(), browser.can_back(), browser.can_forward(),
-                browser.has_page() && store.is_favorite(browser.url()));
+            if (browser->has_page() && !browser->loading())
+                browser->draw(680);
+            hub->draw(*store);
+            bar->draw_display(browser->url(), browser->can_back(), browser->can_forward(),
+                browser->has_page() && store->is_favorite(browser->url()));
             break;
         case State::Edit:
-            if (browser.has_page() && !browser.loading())
-                browser.draw(theme::kKeyY - 8);
-            bar.draw_edit();
-            keyboard.draw();
+            if (browser->has_page() && !browser->loading())
+                browser->draw(theme::kKeyY - 8);
+            bar->draw_edit();
+            keyboard->draw();
             break;
         }
         if (about)
@@ -238,26 +241,26 @@ int run()
         switch (state) {
         case State::Hub:
             hint(hx, theme::kHintA, "A", "Select");
-            if (browser.has_page())
+            if (browser->has_page())
                 hint(hx, theme::kHintB, "B", "Hide Web Hub");
-            hint(hx, theme::kHintX, "X", hub.edit_mode() ? "Done" : "Edit");
+            hint(hx, theme::kHintX, "X", hub->edit_mode() ? "Done" : "Edit");
             hint(hx, theme::kHintY, "Y", "Address");
             break;
         case State::Page:
             hint(hx, theme::kHintA, "A", "Open Link");
-            hint(hx, theme::kHintB, "B", browser.can_back() ? "Back" : "Web Hub");
+            hint(hx, theme::kHintB, "B", browser->can_back() ? "Back" : "Web Hub");
             hint(hx, theme::kHintX, "X",
-                store.is_favorite(browser.url()) ? "Unfavorite" : "Favorite");
+                store->is_favorite(browser->url()) ? "Unfavorite" : "Favorite");
             hint(hx, theme::kHintY, "Y", "Address");
             break;
         case State::Edit:
-            hint(hx, theme::kHintA, "A", bar.suggestions_focused() ? "Go" : "Type");
+            hint(hx, theme::kHintA, "A", bar->suggestions_focused() ? "Go" : "Type");
             hint(hx, theme::kHintB, "B", "Cancel");
             break;
         }
         gfx::frame_end(addr);
     }
-    store.save();
+    store->save();
     return 0;
 }
 
@@ -266,13 +269,22 @@ int run()
 int main()
 {
     xsdk_log_write("xenon_ie: Internet Explorer for Xbox 360 UI on xsdk; Back ends the title");
+    
     const NTSTATUS splash = xsdk_splash_show(800);
     if (!NT_SUCCESS(splash))
         xsdk_log_write("xenon_ie: splash failed: 0x%08X", (unsigned)splash);
-    if (!gfx::open())
+        
+    if (!gfx::open()) {
+        xsdk_log_write("xenon_ie: gfx::open() FAILED! Exiting.");
         return 1;
+    }
+    
+    xsdk_log_write("xenon_ie: gfx::open() SUCCESS. Starting run loop.");
+    
     const int status = run();
+    
+    xsdk_log_write("xenon_ie: run loop exited with status %d", status);
     gfx::close();
-    xsdk_log_write("xenon_ie: exit %d", status);
+    
     return status;
 }
