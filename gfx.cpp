@@ -17,8 +17,8 @@ namespace gfx {
 namespace {
 
 // YEH DO LINES MISS HO GAYI THI, ISLIYE ERROR AA RAHA THA:
-XsSDKShader g_vs;  
-XsSDKShader g_ps;
+XsdkShader g_vs;
+XsdkShader g_ps;
 
 volatile uint32_t* g_vb = nullptr;
 uint32_t g_vb_address = 0;
